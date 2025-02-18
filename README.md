@@ -57,9 +57,8 @@ pip install requests
    - Abra o terminal e navegue até o diretório onde o script está localizado.
    - Execute o script com o seguinte comando:
      ```bash
-     python nome_do_arquivo.py
+     python bot.py
      ```
-     Substitua `nome_do_arquivo.py` pelo nome do arquivo do script.
 
 3. **Monitoramento**:
 
