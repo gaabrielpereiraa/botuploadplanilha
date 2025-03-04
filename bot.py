@@ -1,5 +1,6 @@
 import os
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Endpoint da API para upload de arquivos
 UPLOAD_URL = "http://localhost:3000/questao/upload" 
@@ -7,6 +8,8 @@ UPLOAD_URL = "http://localhost:3000/questao/upload"
 # Pasta local que contém os arquivos
 LOCAL_FOLDER = "./planilhas"
 FILES_WITH_ERROR_FOLDER = "./files_with_error.txt"  # Arquivo para salvar os nomes dos arquivos com erro
+
+MAX_THREADS = 4
 
 # Lista para armazenar os nomes dos arquivos que tiveram erro durante o upload
 files_with_error = []
@@ -35,25 +38,36 @@ def upload_file_to_api(file_name, file_path):
         print(f"Erro ao enviar '{file_name}': {e}")
 
 def main():
-    # Verifica se a pasta local existe
+    # Check if the local folder exists
     if not os.path.exists(LOCAL_FOLDER):
-        print(f"A pasta '{LOCAL_FOLDER}' não existe.")
+        print(f"The folder '{LOCAL_FOLDER}' does not exist.")
         return
 
-    # Itera por todos os arquivos na pasta local
-    for file_name in os.listdir(LOCAL_FOLDER):
-        file_path = os.path.join(LOCAL_FOLDER, file_name)
-        
-        # Verifica se é um arquivo (não um diretório)
-        if os.path.isfile(file_path):
-            print(f"Processando '{file_name}'...")
-            
-            # Faz o upload do arquivo e seu nome para a API
-            upload_file_to_api(file_name, file_path)
-        else:
-            print(f"Ignorando '{file_name}' (não é um arquivo).")
+    # Get a list of all files in the local folder
+    files_to_upload = [
+        (file_name, os.path.join(LOCAL_FOLDER, file_name))
+        for file_name in os.listdir(LOCAL_FOLDER)
+        if os.path.isfile(os.path.join(LOCAL_FOLDER, file_name))
+    ]
 
-    # Salva os nomes dos arquivos que tiveram erro em um arquivo de texto
+    if not files_to_upload:
+        print("No files found in the folder.")
+        return
+
+    # Use ThreadPoolExecutor to upload files concurrently
+    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+        # Submit upload tasks to the thread pool
+        futures = [
+            executor.submit(upload_file_to_api, file_name, file_path)
+            for file_name, file_path in files_to_upload
+        ]
+
+        # Wait for all tasks to complete and handle results
+        for future in as_completed(futures):
+            try:
+                future.result()  # This will raise any exceptions that occurred during the upload
+            except Exception as e:
+                print(f"An error occurred during upload: {e}")
     with open(FILES_WITH_ERROR_FOLDER, 'w') as file:
         for line in files_with_error:
             file.write(line + '\n')
